@@ -49,6 +49,8 @@ const CreateSessionForm = () => {
           numberOfQuestions: 10,
         },
       );
+      console.log("AI RESPONSE FULL:", aiResponse);
+      console.log("AI RESPONSE DATA:", aiResponse.data);
 
       const generatedQuestions = aiResponse.data;
 

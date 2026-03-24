@@ -5,7 +5,6 @@ const {
 } = require("../utils/prompts");
 
 // Generate interview questions and answers
-// POST /api/ai/generate-questions
 const generateInterviewQuestions = async (req, res) => {
   try {
     const { role, experience, topicsToFocus, numberOfQuestions } = req.body;
@@ -24,7 +23,7 @@ const generateInterviewQuestions = async (req, res) => {
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-       model: "openrouter/auto",
+        model: "openrouter/auto",
         messages: [
           {
             role: "user",
@@ -36,53 +35,59 @@ const generateInterviewQuestions = async (req, res) => {
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:8000",
           "X-Title": "InterviewPrepAI",
         },
       }
     );
 
-    // ✅ Safe access (prevents crash)
     const rawText = response?.data?.choices?.[0]?.message?.content;
 
     if (!rawText) {
-      return res.status(500).json({
-        message: "Empty response from AI",
-      });
+      return res.status(200).json([]);
     }
 
-    // Clean AI response
     const cleanedText = rawText
       .replace(/^```json\s*/, "")
       .replace(/```$/, "")
       .trim();
 
-    let data;
+    let data = [];
 
     try {
-      data = JSON.parse(cleanedText);
+      const parsed = JSON.parse(cleanedText);
+
+      if (Array.isArray(parsed)) {
+        data = parsed;
+      } else if (Array.isArray(parsed.questions)) {
+        data = parsed.questions;
+      } else {
+        data = [];
+      }
     } catch (err) {
-      // ✅ Fallback instead of failing completely
-      return res.status(200).json({
-        warning: "AI did not return valid JSON",
-        raw: cleanedText,
-      });
+      data = [
+        {
+          question: `Explain the core concepts of ${topicsToFocus}`,
+          answer:
+            "Focus on fundamentals, key concepts, and practical use cases. Structure your answer clearly with examples where possible.",
+        },
+      ];
     }
 
     return res.status(200).json(data);
-
   } catch (error) {
-    console.log("FULL ERROR:", error.response?.data || error.message);
+    console.log("AI ERROR:", error.response?.data || error.message);
 
-    return res.status(500).json({
-      message: "Failed to generate questions",
-      error: error.response?.data || error.message,
-    });
+    return res.status(200).json([
+      {
+        question: "Explain a core concept related to your selected topic.",
+        answer:
+          "Revise the fundamentals, provide a structured explanation, and include examples for clarity.",
+      },
+    ]);
   }
 };
 
 // Generate explanation
-// POST /api/ai/generate-explanation
 const generateConceptExplanation = async (req, res) => {
   try {
     const { question } = req.body;
@@ -96,7 +101,7 @@ const generateConceptExplanation = async (req, res) => {
     const response = await axios.post(
       "https://openrouter.ai/api/v1/chat/completions",
       {
-        model: "openrouter/auto", // ✅ safest model
+        model: "openrouter/auto",
         messages: [
           {
             role: "user",
@@ -108,7 +113,6 @@ const generateConceptExplanation = async (req, res) => {
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:8000",
           "X-Title": "InterviewPrepAI",
         },
       }
@@ -117,36 +121,41 @@ const generateConceptExplanation = async (req, res) => {
     const rawText = response?.data?.choices?.[0]?.message?.content;
 
     if (!rawText) {
-      return res.status(500).json({
-        message: "Empty response from AI",
+      return res.status(200).json({
+        title: "Concept Explanation",
+        explanation: "Unable to generate explanation at the moment.",
+        answerTips: [],
+        quickNotes: [],
       });
     }
 
-    // Clean AI response
     const cleanedText = rawText
       .replace(/^```json\s*/, "")
       .replace(/```$/, "")
       .trim();
 
-    let data;
+    let data = {};
 
     try {
       data = JSON.parse(cleanedText);
     } catch (err) {
-      return res.status(200).json({
-        warning: "AI did not return valid JSON",
-        raw: cleanedText,
-      });
+      data = {
+        title: "Concept Explanation",
+        explanation: cleanedText,
+        answerTips: [],
+        quickNotes: [],
+      };
     }
 
     return res.status(200).json(data);
-
   } catch (error) {
-    console.log("FULL ERROR:", error.response?.data || error.message);
+    console.log("AI ERROR:", error.response?.data || error.message);
 
-    return res.status(500).json({
-      message: "Failed to generate explanation",
-      error: error.response?.data || error.message,
+    return res.status(200).json({
+      title: "Concept Explanation",
+      explanation: "Unable to generate explanation at the moment.",
+      answerTips: [],
+      quickNotes: [],
     });
   }
 };
